@@ -24,6 +24,7 @@ export interface UiConfig {
 export interface StorageConfig {
   autoExport: 'Downloads' | 'Picker';
   keepTempHours: number;
+  transcodeToMp4?: boolean;
 }
 
 export interface AppConfig {
@@ -51,6 +52,7 @@ export const DEFAULT_CONFIG: AppConfig = {
   },
   storage: {
     autoExport: 'Downloads',
-    keepTempHours: 24
+    keepTempHours: 24,
+    transcodeToMp4: false
   }
 };

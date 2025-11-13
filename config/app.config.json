@@ -16,6 +16,7 @@
   },
   "storage": {
     "autoExport": "Downloads",
-    "keepTempHours": 24
+    "keepTempHours": 24,
+    "transcodeToMp4": false
   }
 }

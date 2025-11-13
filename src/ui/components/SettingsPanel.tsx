@@ -119,7 +119,9 @@ export function SettingsPanel({ open, config, onClose, onUpdate, onRefresh }: Se
                 key={option.value}
                 type="button"
                 onClick={() =>
-                  onUpdate({ storage: { autoExport: option.value } as AppConfig['storage'] })
+                  onUpdate({
+                    storage: { ...config.storage, autoExport: option.value }
+                  })
                 }
                 className={`rounded-full border px-3 py-1 text-xs ${
                   config.storage.autoExport === option.value
@@ -130,6 +132,42 @@ export function SettingsPanel({ open, config, onClose, onUpdate, onRefresh }: Se
                 {option.label}
               </button>
             ))}
+          </div>
+        </section>
+
+        <section className="mt-4">
+          <p className="text-xs uppercase tracking-[0.3em] text-slate-500">Format</p>
+          <div className="mt-2 flex gap-2">
+            <button
+              type="button"
+              onClick={() =>
+                onUpdate({
+                  storage: { ...config.storage, transcodeToMp4: false }
+                })
+              }
+              className={`rounded-full border px-3 py-1 text-xs ${
+                !config.storage.transcodeToMp4
+                  ? 'border-primary text-primary'
+                  : 'border-outline text-slate-400'
+              }`}
+            >
+              WebM
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                onUpdate({
+                  storage: { ...config.storage, transcodeToMp4: true }
+                })
+              }
+              className={`rounded-full border px-3 py-1 text-xs ${
+                config.storage.transcodeToMp4
+                  ? 'border-primary text-primary'
+                  : 'border-outline text-slate-400'
+              }`}
+            >
+              MP4 (beta)
+            </button>
           </div>
         </section>
       </div>

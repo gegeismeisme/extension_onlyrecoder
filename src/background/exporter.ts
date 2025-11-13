@@ -52,15 +52,43 @@ async function maybeTranscode(
   config: AppConfig,
   jobId: string
 ): Promise<RecordingResult> {
+  if (!config.storage.transcodeToMp4) {
+    return job;
+  }
   try {
     const ffmpegInstance = await ensureFFmpeg(jobId);
     if (!ffmpegInstance) {
       return job;
     }
     sendStage(jobId, 'ffmpeg-stub');
-    // Stub: simulate transcode delay
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    return job;
+    const inputName = `input-${jobId}.webm`;
+    const outputName = `output-${jobId}.mp4`;
+    const inputData = new Uint8Array(await job.blob.arrayBuffer());
+    ffmpegInstance.FS('writeFile', inputName, inputData);
+    await ffmpegInstance.run(
+      '-i',
+      inputName,
+      '-c:v',
+      'libx264',
+      '-preset',
+      'fast',
+      '-pix_fmt',
+      'yuv420p',
+      outputName
+    );
+    const outputData = ffmpegInstance.FS('readFile', outputName);
+    ffmpegInstance.FS('unlink', inputName);
+    ffmpegInstance.FS('unlink', outputName);
+    URL.revokeObjectURL(job.url);
+    const blob = new Blob([outputData.buffer], { type: 'video/mp4' });
+    const url = URL.createObjectURL(blob);
+    return {
+      ...job,
+      blob,
+      url,
+      mimeType: 'video/mp4',
+      size: blob.size
+    };
   } catch (error) {
     console.warn('[export] ffmpeg stub failed, fallback to original blob', error);
     return job;

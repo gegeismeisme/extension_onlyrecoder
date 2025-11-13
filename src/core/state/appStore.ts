@@ -210,7 +210,7 @@ export const useAppStore = create<AppState>()(
         if (payload.permissions) next.permissions = payload.permissions;
         if (payload.timeline) next.timeline = payload.timeline;
         if (payload.exportStatus) next.exportStatus = payload.exportStatus;
-        if ('exportStage' in payload) next.exportStage = payload.exportStage ?? null;
+        if ('exportStage' in payload) next.exportStage = (payload.exportStage as string | null) ?? null;
         set(next);
       }
     }),
