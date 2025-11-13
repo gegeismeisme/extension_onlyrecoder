@@ -3,6 +3,7 @@ import { IconToggle } from '../components/IconToggle';
 import { RegionBadge } from '../components/RegionBadge';
 import { PermissionHints } from '../components/PermissionHints';
 import { OnboardingOverlay } from '../components/OnboardingOverlay';
+import { SettingsPanel } from '../components/SettingsPanel';
 import { initI18n, t } from '../../core/i18n';
 import { useAppStore, type AudioState } from '../../core/state/appStore';
 import type { RecorderStatus } from '../../core/types/recorder';
@@ -42,7 +43,13 @@ export function App() {
   const resetOnboarding = useAppStore((s) => s.resetOnboarding);
   const hasSeenOnboarding = useAppStore((s) => s.hasSeenOnboarding);
   const setOnboardingSeen = useAppStore((s) => s.setOnboardingSeen);
+  const onboardingStep = useAppStore((s) => s.onboardingStep);
+  const setOnboardingStep = useAppStore((s) => s.setOnboardingStep);
+  const exportStatus = useAppStore((s) => s.exportStatus);
+  const updateConfigOverrides = useAppStore((s) => s.updateConfig);
+  const refreshConfig = useAppStore((s) => s.refreshConfig);
   const [permissionMessage, setPermissionMessage] = useState<string | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   useEffect(() => {
     const boot = async () => {
@@ -79,6 +86,9 @@ export function App() {
       }
       if (message?.type === 'recorder:permissions') {
         mergeBackgroundState({ permissions: message.permissions });
+      }
+      if (message?.type === 'export:status') {
+        mergeBackgroundState({ exportStatus: message.status });
       }
       if (message?.type === 'region:selected') {
         mergeBackgroundState({
@@ -291,6 +301,12 @@ export function App() {
           active={language === 'zh-CN'}
           onClick={switchLanguage}
         />
+        <IconToggle
+          icon="lucide:settings"
+          label="Settings"
+          active={settingsOpen}
+          onClick={() => setSettingsOpen(true)}
+        />
       </section>
 
       <footer className="mt-6 rounded-2xl border border-dashed border-outline p-3 text-xs text-slate-400">
@@ -311,12 +327,36 @@ export function App() {
         onRequestScreen={requestScreenPermission}
         message={permissionMessage}
       />
+      <p className="mt-2 text-center text-[0.65rem] uppercase tracking-[0.3em] text-slate-600">
+        Export: {exportStatus}
+      </p>
       <RegionBadge
         region={regionBounds}
         onClear={clearRegion}
         clearLabel={t('tooltip.regionClear')}
       />
-      {!hasSeenOnboarding && <OnboardingOverlay onClose={setOnboardingSeen} />}
+      {!hasSeenOnboarding && (
+        <OnboardingOverlay
+          step={onboardingStep}
+          onNext={() => {
+            if (onboardingStep >= 2) {
+              setOnboardingSeen();
+            } else {
+              setOnboardingStep(onboardingStep + 1);
+            }
+          }}
+          onSkip={setOnboardingSeen}
+        />
+      )}
+      <SettingsPanel
+        open={settingsOpen}
+        config={config}
+        onClose={() => setSettingsOpen(false)}
+        onUpdate={(patch) => updateConfigOverrides(patch)}
+        onRefresh={async () => {
+          await refreshConfig();
+        }}
+      />
     </div>
   );
 }

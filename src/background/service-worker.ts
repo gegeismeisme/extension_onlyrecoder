@@ -1,6 +1,10 @@
 import { loadConfig } from '../core/config';
 import type { CaptureState, RegionBounds } from '../core/types/capture';
 import type { RecorderStatus } from '../core/types/recorder';
+import type { AppConfig } from '../core/types/config';
+import { DEFAULT_CONFIG } from '../core/types/config';
+import { mergeConfig, mergeOverrides } from '../core/utils/configMerge';
+import { enqueueExport, getExportStatus } from './exporter';
 import { createRecorderController } from '../recorder/controller';
 
 const recordingState = {
@@ -26,6 +30,9 @@ const captureState: CaptureState = {
 };
 
 let timelineInterval: number | null = null;
+let baseConfig: AppConfig = DEFAULT_CONFIG;
+let configOverrides: Partial<AppConfig> | null = null;
+let runtimeConfig: AppConfig = DEFAULT_CONFIG;
 
 const recorder = createRecorderController({
   onStatusChange: (status: RecorderStatus) => {
@@ -70,16 +77,7 @@ const recorder = createRecorderController({
       size: result.size,
       durationMs: result.durationMs
     });
-    chrome.downloads.download(
-      {
-        url: result.url,
-        filename: `OnlyRecoder-${new Date().toISOString().replace(/[:.]/g, '-')}.webm`,
-        saveAs: false
-      },
-      () => {
-        URL.revokeObjectURL(result.url);
-      }
-    );
+    enqueueExport(result, runtimeConfig);
   },
   onError: (error) => {
     chrome.runtime.sendMessage({ type: 'recorder:error', message: error.message });
@@ -87,9 +85,17 @@ const recorder = createRecorderController({
 });
 
 chrome.runtime.onInstalled.addListener(async () => {
-  await loadConfig();
+  baseConfig = await loadConfig();
+  await loadOverridesFromStorage();
+  recomputeConfig();
   console.info('[OnlyRecoder] extension installed');
 });
+
+(async () => {
+  baseConfig = await loadConfig();
+  await loadOverridesFromStorage();
+  recomputeConfig();
+})();
 
 chrome.commands.onCommand.addListener(async (command) => {
   switch (command) {
@@ -177,6 +183,27 @@ chrome.runtime.onMessage.addListener(async (message, _sender, sendResponse) => {
       sendResponse({ stopped: true });
       break;
     }
+    case 'config:get': {
+      sendResponse({ config: runtimeConfig, overrides: configOverrides });
+      break;
+    }
+    case 'config:update': {
+      configOverrides = mergeOverrides(configOverrides, message.patch as Partial<AppConfig>);
+      persistOverrides();
+      recomputeConfig();
+      sendResponse({ config: runtimeConfig });
+      break;
+    }
+    case 'config:refresh': {
+      baseConfig = await loadConfig();
+      recomputeConfig();
+      sendResponse({ config: runtimeConfig });
+      break;
+    }
+    case 'export:status': {
+      sendResponse({ status: getExportStatus() });
+      break;
+    }
     default:
       break;
   }
@@ -190,7 +217,8 @@ async function toggleRecording() {
     const started = await recorder.start({
       mode: captureState.mode,
       region: captureState.region,
-      captureAudio
+      captureAudio,
+      config: runtimeConfig
     });
     if (!started) {
       chrome.runtime.sendMessage({ type: 'recorder:error', message: 'Failed to start recording.' });
@@ -226,6 +254,23 @@ async function closeRegionOverlay() {
 
 async function requestTabCapture(): Promise<string | null> {
   return new Promise((resolve) => {
+    if (!chrome.tabCapture || typeof chrome.tabCapture.getMediaStreamId !== 'function') {
+      console.warn('[capture] tabCapture API is unavailable in this browser');
+      recordingState.permissions.screen = false;
+      chrome.runtime.sendMessage({
+        type: 'recorder:error',
+        message: '当前浏览器不支持 tabCapture，请切换到 Chrome/Edge 或使用桌面捕获。'
+      });
+      chrome.desktopCapture.chooseDesktopMedia(['window', 'screen', 'tab'], (streamId) => {
+        if (!streamId) {
+          resolve(null);
+        } else {
+          resolve(streamId);
+        }
+      });
+      return;
+    }
+
     if (!captureState.tabId) {
       resolve(null);
       return;
@@ -263,6 +308,14 @@ chrome.runtime.onStartup.addListener(() => {
 
 refreshActiveTab();
 
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName === 'local' && changes.configOverrides) {
+    configOverrides = (changes.configOverrides.newValue as Partial<AppConfig>) ?? null;
+    recomputeConfig();
+    chrome.runtime.sendMessage({ type: 'config:updated', config: runtimeConfig });
+  }
+});
+
 function refreshActiveTab(windowId?: number) {
   const query: chrome.tabs.QueryInfo =
     windowId && windowId !== chrome.windows.WINDOW_ID_NONE
@@ -277,3 +330,24 @@ function refreshActiveTab(windowId?: number) {
     }
   });
 }
+async function loadOverridesFromStorage() {
+  try {
+    const result = await chrome.storage.local.get(['configOverrides']);
+    configOverrides = (result.configOverrides as Partial<AppConfig>) ?? null;
+  } catch (error) {
+    console.warn('[config] failed to load overrides', error);
+    configOverrides = null;
+  }
+}
+
+async function persistOverrides() {
+  try {
+    await chrome.storage.local.set({ configOverrides });
+  } catch (error) {
+    console.warn('[config] failed to persist overrides', error);
+  }
+}
+
+const recomputeConfig = () => {
+  runtimeConfig = mergeConfig(baseConfig, configOverrides);
+};

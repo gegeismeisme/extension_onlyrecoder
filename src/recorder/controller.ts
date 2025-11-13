@@ -1,5 +1,6 @@
 import type { CaptureMode, RegionBounds } from '../core/types/capture';
 import type { RecorderStatus, RecordingResult } from '../core/types/recorder';
+import type { AppConfig } from '../core/types/config';
 
 interface RecorderCallbacks {
   onStatusChange: (status: RecorderStatus) => void;
@@ -11,6 +12,7 @@ interface StartOptions {
   mode: CaptureMode;
   region?: RegionBounds;
   captureAudio: boolean;
+  config: AppConfig;
 }
 
 interface RecorderController {
@@ -39,7 +41,7 @@ export function createRecorderController(callbacks: RecorderCallbacks): Recorder
     currentStream = null;
   };
 
-  const buildRecorder = (stream: MediaStream) => {
+  const buildRecorder = (stream: MediaStream, config: AppConfig) => {
     const mimeCandidates = [
       'video/webm;codecs=vp9,opus',
       'video/webm;codecs=vp8,opus',
@@ -49,7 +51,10 @@ export function createRecorderController(callbacks: RecorderCallbacks): Recorder
     for (const mimeType of mimeCandidates) {
       if (!MediaRecorder.isTypeSupported(mimeType)) continue;
       try {
-        recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 8_000_000 });
+        recorder = new MediaRecorder(stream, {
+          mimeType,
+          videoBitsPerSecond: config.video.maxBitrate * 1000
+        });
         recorder.mimeType = mimeType;
         break;
       } catch {
@@ -68,8 +73,16 @@ export function createRecorderController(callbacks: RecorderCallbacks): Recorder
     }
   };
 
-  const captureTab = (captureAudio: boolean) =>
+  const captureTab = (captureAudio: boolean, config: AppConfig) =>
     new Promise<MediaStream | null>((resolve) => {
+      const resolutionConstraints: Record<string, { maxWidth?: number; maxHeight?: number }> = {
+        auto: {},
+        '1080p': { maxWidth: 1920, maxHeight: 1080 },
+        '4k': { maxWidth: 3840, maxHeight: 2160 }
+      };
+      const targetResolution =
+        resolutionConstraints[config.video.resolution] ?? resolutionConstraints.auto;
+
       chrome.tabCapture.capture(
         {
           audio: captureAudio,
@@ -77,9 +90,8 @@ export function createRecorderController(callbacks: RecorderCallbacks): Recorder
           videoConstraints: {
             mandatory: {
               chromeMediaSource: 'tab',
-              maxWidth: 3840,
-              maxHeight: 2160,
-              maxFrameRate: 60
+              maxFrameRate: config.video.framerate,
+              ...targetResolution
             }
           }
         },
@@ -94,16 +106,16 @@ export function createRecorderController(callbacks: RecorderCallbacks): Recorder
       );
     });
 
-  const start: RecorderController['start'] = async ({ captureAudio, mode }) => {
+  const start: RecorderController['start'] = async ({ captureAudio, mode, config }) => {
     if (currentStatus === 'recording') return true;
     try {
       ensureMediaRecorderSupport();
-      const stream = await captureTab(captureAudio);
+      const stream = await captureTab(captureAudio, config);
       if (!stream) {
         throw new Error('Unable to capture tab. Check permissions.');
       }
       chunks = [];
-      const recorder = buildRecorder(stream);
+      const recorder = buildRecorder(stream, config);
       mediaRecorder = recorder;
       currentStream = stream;
       startedAt = Date.now();

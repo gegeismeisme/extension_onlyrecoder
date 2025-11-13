@@ -20,7 +20,7 @@
 ## 技术架构 & 配置
 - [x] 权限矩阵与 Manifest（tab/desktop capture, offscreen, commands）
 - [x] Zustand + IndexedDB 状态持久化封装
-- [ ] 配置面板（图标式）+ 热重载通道
+- [x] 配置面板（图标式）+ 热重载通道（popup gear + 后台 overrides + config:refresh）
 
 ## 录制与渲染引擎
 - [~] Tab capture service（streamId 请求 + stop + active tab 跟踪，待自动切流）
@@ -33,7 +33,7 @@
 - [ ] Web Audio Graph 混音（增益/压缩/延迟补偿）
 - [ ] 图标控制（长按 radial mixer + tooltip 文案）
 
-- [~] Popup 主界面（图标网格 + 状态指示 + 区域 badge + 暂停控制 + 权限提示/计时/申请入口 + onboarding overlay）
+ - [~] Popup 主界面（图标网格 + 状态指示 + 区域 badge + 暂停控制 + 权限提示/计时/申请入口 + 多步 onboarding 动画）
 - [x] Tooltip/辅助文案（zh/EN 映射）
 - [~] 空状态 + 权限引导（图标提示，待动画/权限检测）
 
