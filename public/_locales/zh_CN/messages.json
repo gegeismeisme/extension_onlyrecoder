@@ -1,0 +1,14 @@
+{
+  "extName": {
+    "message": "OnlyRecoder"
+  },
+  "extDescription": {
+    "message": "图标优先的中英双语录屏扩展，支持多标签、区域与双音源。"
+  },
+  "cmdToggleRecording": {
+    "message": "开始 / 暂停录制"
+  },
+  "cmdMarkRegion": {
+    "message": "切换区域框选"
+  }
+}

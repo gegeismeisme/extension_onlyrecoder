@@ -1,13 +1,61 @@
 {
   "name": "onlyrecoder",
-  "version": "1.0.0",
-  "description": "- 这是一款面向 Chrome/Edge/Firefox（Manifest V3 兼容层）的录屏扩展，聚焦“一次录制多标签”、“区域裁剪”、“多音源混录”、“后台持续运行”四个关键词。 - Designed for cross-tab storytelling: capture any active tab, switch freely during a session, or fall back to window/desktop capture when the browser platform requires it.",
-  "main": "index.js",
+  "version": "0.1.0",
+  "description": "Cross-tab recorder browser extension with icon-first bilingual UI.",
+  "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "vite",
+    "build": "rimraf dist && vite build",
+    "preview": "vite preview",
+    "lint": "eslint \"src/**/*.{ts,tsx}\"",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest",
+    "test:ui": "playwright test",
+    "format": "prettier --cache --write \"{src,config}/**/*.{js,ts,tsx,json,md}\""
   },
-  "keywords": [],
+  "keywords": [
+    "recording",
+    "browser-extension",
+    "preact",
+    "manifest-v3"
+  ],
   "author": "",
-  "license": "ISC",
-  "type": "commonjs"
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.18.0",
+    "pnpm": ">=8"
+  },
+  "dependencies": {
+    "@iconify-json/lucide": "^1.2.73",
+    "@iconify/react": "^6.0.2",
+    "i18next": "^25.6.2",
+    "idb": "^8.0.3",
+    "preact": "^10.27.2",
+    "zustand": "^5.0.8"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@preact/preset-vite": "^2.10.2",
+    "@testing-library/preact": "^3.2.4",
+    "@types/chrome": "^0.1.28",
+    "@types/node": "^20.19.25",
+    "@typescript-eslint/eslint-plugin": "^8.46.4",
+    "@typescript-eslint/parser": "^8.46.4",
+    "@vitest/coverage-v8": "^4.0.8",
+    "autoprefixer": "^10.4.22",
+    "eslint": "^9.39.1",
+    "eslint-plugin-prettier": "^5.5.4",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "globals": "^16.5.0",
+    "playwright": "^1.56.1",
+    "postcss": "^8.5.6",
+    "prettier": "^3.6.2",
+    "rimraf": "^6.1.0",
+    "tailwindcss": "^3.4.14",
+    "typescript": "^5.9.3",
+    "vite": "^7.2.2",
+    "vite-plugin-static-copy": "^3.1.4",
+    "vitest": "^4.0.8"
+  }
 }

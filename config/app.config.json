@@ -1,0 +1,21 @@
+{
+  "video": {
+    "resolution": "auto",
+    "maxBitrate": 12000,
+    "framerate": 60
+  },
+  "audio": {
+    "mic": true,
+    "system": true,
+    "duckMusicOnMic": true
+  },
+  "ui": {
+    "language": "auto",
+    "theme": "dark",
+    "iconSize": 32
+  },
+  "storage": {
+    "autoExport": "Downloads",
+    "keepTempHours": 24
+  }
+}

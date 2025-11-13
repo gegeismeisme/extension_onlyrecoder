@@ -1,0 +1,14 @@
+{
+  "extName": {
+    "message": "OnlyRecoder"
+  },
+  "extDescription": {
+    "message": "Icon-first bilingual recorder for tabs, regions, and dual audio."
+  },
+  "cmdToggleRecording": {
+    "message": "Start / pause recording"
+  },
+  "cmdMarkRegion": {
+    "message": "Toggle region marquee"
+  }
+}
