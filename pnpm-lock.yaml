@@ -1,0 +1,104 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .:
+    dependencies:
+      '@iconify-json/lucide':
+        specifier: ^1.2.73
+        version: 1.2.73
+      '@iconify/react':
+        specifier: ^6.0.2
+        version: 6.0.2(react@19.2.0)
+      i18next:
+        specifier: ^25.6.2
+        version: 25.6.2(typescript@5.9.3)
+      idb:
+        specifier: ^8.0.3
+        version: 8.0.3
+      preact:
+        specifier: ^10.27.2
+        version: 10.27.2
+      zustand:
+        specifier: ^5.0.8
+        version: 5.0.8(react@19.2.0)
+    devDependencies:
+      '@preact/preset-vite':
+        specifier: ^2.10.2
+        version: 2.10.2(@babel/core@7.28.5)(preact@10.27.2)(vite@7.2.2(@types/node@20.19.25))
+      '@testing-library/preact':
+        specifier: ^3.2.4
+        version: 3.2.4(preact@10.27.2)
+      '@types/chrome':
+        specifier: ^0.1.28
+        version: 0.1.28
+      '@types/node':
+        specifier: ^20.19.25
+        version: 20.19.25
+      '@typescript-eslint/eslint-plugin':
+        specifier: ^8.46.4
+        version: 8.46.4(@typescript-eslint/parser@8.46.4(eslint@9.39.1)(typescript@5.9.3))(eslint@9.39.1)(typescript@5.9.3)
+      '@typescript-eslint/parser':
+        specifier: ^8.46.4
+        version: 8.46.4(eslint@9.39.1)(typescript@5.9.3)
+      '@vitest/coverage-v8':
+        specifier: ^4.0.8
+        version: 4.0.8(vitest@4.0.8(@types/node@20.19.25))
+      autoprefixer:
+        specifier: ^10.4.22
+        version: 10.4.22(postcss@8.5.6)
+      eslint:
+        specifier: ^9.39.1
+        version: 9.39.1
+      eslint-plugin-prettier:
+        specifier: ^5.5.4
+        version: 5.5.4(eslint@9.39.1)(prettier@3.6.2)
+      eslint-plugin-react:
+        specifier: ^7.37.5
+        version: 7.37.5(eslint@9.39.1)
+      eslint-plugin-react-hooks:
+        specifier: ^7.0.1
+        version: 7.0.1(eslint@9.39.1)
+      playwright:
+        specifier: ^1.56.1
+        version: 1.56.1
+      postcss:
+        specifier: ^8.5.6
+        version: 8.5.6
+      prettier:
+        specifier: ^3.6.2
+        version: 3.6.2
+      rimraf:
+        specifier: ^6.1.0
+        version: 6.1.0
+      tailwindcss:
+        specifier: ^4.1.17
+        version: 4.1.17
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+      vite:
+        specifier: ^7.2.2
+        version: 7.2.2(@types/node@20.19.25)
+      vite-plugin-static-copy:
+        specifier: ^3.1.4
+        version: 3.1.4(vite@7.2.2(@types/node@20.19.25))
+      vitest:
+        specifier: ^4.0.8
+        version: 4.0.8(@types/node@20.19.25)
+
+packages:
+
+  '@babel/code-frame@7.27.1':
+    resolution: {integrity: sha512-cjQ7ZlQ0Mv3b47hABuTevyTuYN4i+loJKGeV9flcCgIK37cCXRh+L1bd3iBHlynerhQ7BhCkn2BPbQUL+rGqFg==}
+    engines: {node: '>=6.9.0'}
+
+  '@babel/compat-data@7.28.5':
+    resolution: {integrity: sha512-6uFXyCayocRbqhZOB+6XcuZbkMNimwfVGFji8CTZnCzOHVGvDqzvitu1re2AU5LROliz7eQPhB8CpAMvnx9EjA==}
+    engines: {node: '>=6.9.0'}
+
+  '@babel/cor
