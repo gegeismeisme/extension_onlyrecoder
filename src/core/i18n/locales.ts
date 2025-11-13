@@ -11,7 +11,12 @@ export const resources = {
       'tooltip.system': 'Toggle system audio',
       'tooltip.quality': 'Quality presets',
       'tooltip.language': 'Switch language',
-      'tooltip.regionClear': 'Clear region'
+      'tooltip.resume': 'Resume recording',
+      'tooltip.regionClear': 'Clear region',
+      'permission.audio.granted': 'Audio ready',
+      'permission.audio.denied': 'Microphone permission blocked',
+      'permission.screen.granted': 'Screen capture ready',
+      'permission.screen.denied': 'Screen capture blocked'
     }
   },
   'zh-CN': {
@@ -26,7 +31,12 @@ export const resources = {
       'tooltip.system': '切换系统音频',
       'tooltip.quality': '质量预设',
       'tooltip.language': '切换语言',
-      'tooltip.regionClear': '清除区域'
+      'tooltip.resume': '恢复录制',
+      'tooltip.regionClear': '清除区域',
+      'permission.audio.granted': '音频权限已就绪',
+      'permission.audio.denied': '麦克风权限被拒绝',
+      'permission.screen.granted': '屏幕捕获已就绪',
+      'permission.screen.denied': '屏幕捕获被拒绝'
     }
   }
 };

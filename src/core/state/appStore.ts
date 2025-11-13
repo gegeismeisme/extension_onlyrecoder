@@ -18,6 +18,14 @@ interface AppState {
   captureMode: CaptureMode;
   regionBounds?: RegionBounds;
   audio: AudioState;
+  permissions: {
+    audio: boolean;
+    screen: boolean;
+  };
+  timeline: {
+    startedAt: number | null;
+    elapsedMs: number;
+  };
   qualityPreset: number;
   language: LanguageOption;
   config: AppConfig;
@@ -27,12 +35,16 @@ interface AppState {
   setCaptureMode: (mode: CaptureMode) => void;
   setRegionBounds: (region?: RegionBounds) => void;
   setAudio: (channel: keyof AudioState, enabled: boolean) => void;
+  setPermissions: (permissions: { audio?: boolean; screen?: boolean }) => void;
+  setTimeline: (timeline: Partial<AppState['timeline']>) => void;
   cycleQuality: () => void;
   setLanguage: (lang: LanguageOption) => void;
   mergeBackgroundState: (
     payload: Partial<Pick<AppState, 'status' | 'regionMode' | 'captureMode'>> & {
       audio?: AudioState;
       regionBounds?: RegionBounds;
+      permissions?: AppState['permissions'];
+      timeline?: AppState['timeline'];
     }
   ) => void;
 }
@@ -57,6 +69,14 @@ const createInitialState = (): Omit<
     mic: true,
     system: true
   },
+  permissions: {
+    audio: false,
+    screen: false
+  },
+  timeline: {
+    startedAt: null,
+    elapsedMs: 0
+  },
   qualityPreset: 0,
   language: DEFAULT_CONFIG.ui.language,
   config: DEFAULT_CONFIG
@@ -80,6 +100,14 @@ export const useAppStore = create<AppState>()(
       setRegionBounds: (region) => set({ regionBounds: region }),
       setAudio: (channel, enabled) =>
         set((state) => ({ audio: { ...state.audio, [channel]: enabled } })),
+      setPermissions: (permissions) =>
+        set((state) => ({
+          permissions: { ...state.permissions, ...permissions }
+        })),
+      setTimeline: (timeline) =>
+        set((state) => ({
+          timeline: { ...state.timeline, ...timeline }
+        })),
       cycleQuality: () =>
         set((state) => ({
           qualityPreset: (state.qualityPreset + 1) % 3
@@ -92,6 +120,8 @@ export const useAppStore = create<AppState>()(
         if (payload.captureMode) next.captureMode = payload.captureMode;
         if (payload.audio) next.audio = payload.audio;
         if ('regionBounds' in payload) next.regionBounds = payload.regionBounds;
+        if (payload.permissions) next.permissions = payload.permissions;
+        if (payload.timeline) next.timeline = payload.timeline;
         set(next);
       }
     }),
@@ -102,6 +132,8 @@ export const useAppStore = create<AppState>()(
         language: state.language,
         qualityPreset: state.qualityPreset,
         audio: state.audio,
+        permissions: state.permissions,
+        timeline: state.timeline,
         regionBounds: state.regionBounds,
         captureMode: state.captureMode
       })

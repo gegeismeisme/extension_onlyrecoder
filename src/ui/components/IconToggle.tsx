@@ -16,6 +16,7 @@ export function IconToggle({
   children,
   ...rest
 }: IconToggleProps) {
+  const isDisabled = rest.disabled;
   return (
     <button
       type="button"
@@ -26,7 +27,9 @@ export function IconToggle({
         active
           ? 'border-primary bg-primary/20 text-primary shadow-[0_0_12px_rgba(92,108,255,0.45)]'
           : 'border-outline bg-surface text-white hover:border-primary/60 hover:text-primary'
-      } ${className ?? ''}`}
+      } ${isDisabled ? 'cursor-not-allowed opacity-40 hover:border-outline hover:text-white' : ''} ${
+        className ?? ''
+      }`}
     >
       <Icon icon={icon} width={28} height={28} />
       {children && (

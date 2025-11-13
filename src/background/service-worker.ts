@@ -10,6 +10,14 @@ const recordingState = {
   audio: {
     mic: true,
     system: true
+  },
+  permissions: {
+    audio: false,
+    screen: false
+  },
+  timeline: {
+    startedAt: null,
+    elapsedMs: 0
   }
 };
 
@@ -17,10 +25,38 @@ const captureState: CaptureState = {
   mode: 'tab'
 };
 
+let timelineInterval: number | null = null;
+
 const recorder = createRecorderController({
   onStatusChange: (status: RecorderStatus) => {
     recordingState.active = status !== 'idle';
     recordingState.paused = status === 'paused';
+    if (status === 'recording' && !timelineInterval) {
+      recordingState.timeline.startedAt = Date.now();
+      recordingState.timeline.elapsedMs = 0;
+      timelineInterval = setInterval(() => {
+        if (recordingState.timeline.startedAt) {
+          recordingState.timeline.elapsedMs = Date.now() - recordingState.timeline.startedAt;
+          chrome.runtime.sendMessage({
+            type: 'recorder:timeline',
+            timeline: recordingState.timeline
+          });
+        }
+      }, 1000) as unknown as number;
+    }
+    if (status === 'paused' && recordingState.timeline.startedAt) {
+      recordingState.timeline.elapsedMs = Date.now() - recordingState.timeline.startedAt;
+      chrome.runtime.sendMessage({ type: 'recorder:timeline', timeline: recordingState.timeline });
+    }
+    if (status === 'idle') {
+      if (timelineInterval) {
+        clearInterval(timelineInterval);
+        timelineInterval = null;
+      }
+      recordingState.timeline.startedAt = null;
+      recordingState.timeline.elapsedMs = 0;
+      chrome.runtime.sendMessage({ type: 'recorder:timeline', timeline: recordingState.timeline });
+    }
     chrome.action.setBadgeText({
       text: status === 'idle' ? '' : status === 'paused' ? 'PAU' : 'REC'
     });
@@ -125,7 +161,15 @@ chrome.runtime.onMessage.addListener(async (message, _sender, sendResponse) => {
     }
     case 'capture:request': {
       const streamId = await requestTabCapture();
-      sendResponse({ ok: Boolean(streamId), streamId });
+      chrome.runtime.sendMessage({
+        type: 'recorder:permissions',
+        permissions: recordingState.permissions
+      });
+      sendResponse({
+        ok: Boolean(streamId),
+        streamId,
+        permissions: recordingState.permissions
+      });
       break;
     }
     case 'capture:stop': {
@@ -151,6 +195,7 @@ async function toggleRecording() {
     if (!started) {
       chrome.runtime.sendMessage({ type: 'recorder:error', message: 'Failed to start recording.' });
     }
+    recordingState.permissions.audio = captureAudio;
   } else {
     await recorder.stop();
   }
@@ -188,9 +233,11 @@ async function requestTabCapture(): Promise<string | null> {
     chrome.tabCapture.getMediaStreamId({ targetTabId: captureState.tabId }, (streamId) => {
       if (chrome.runtime.lastError) {
         console.warn('[capture] getMediaStreamId failed', chrome.runtime.lastError);
+        recordingState.permissions.screen = false;
         resolve(null);
         return;
       }
+      recordingState.permissions.screen = Boolean(streamId);
       resolve(streamId);
     });
   });

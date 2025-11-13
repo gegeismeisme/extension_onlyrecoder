@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo } from 'preact/hooks';
+import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
 import { IconToggle } from '../components/IconToggle';
 import { RegionBadge } from '../components/RegionBadge';
+import { PermissionHints } from '../components/PermissionHints';
 import { initI18n, t } from '../../core/i18n';
 import { useAppStore, type AudioState } from '../../core/state/appStore';
 import type { RecorderStatus } from '../../core/types/recorder';
@@ -35,6 +36,9 @@ export function App() {
   const setLanguage = useAppStore((s) => s.setLanguage);
   const cycleQuality = useAppStore((s) => s.cycleQuality);
   const mergeBackgroundState = useAppStore((s) => s.mergeBackgroundState);
+  const permissions = useAppStore((s) => s.permissions);
+  const timeline = useAppStore((s) => s.timeline);
+  const [permissionMessage, setPermissionMessage] = useState<string | null>(null);
 
   useEffect(() => {
     const boot = async () => {
@@ -60,11 +64,17 @@ export function App() {
       if (message?.type === 'recorder:toggled') {
         mergeBackgroundState({ status: message.active ? 'recording' : 'idle' });
       }
+      if (message?.type === 'recorder:status-changed') {
+        mergeBackgroundState({ status: message.status });
+      }
       if (message?.type === 'audio:updated') {
         mergeBackgroundState({ audio: message.audio });
       }
       if (message?.type === 'region:toggle') {
         mergeBackgroundState({ regionMode: message.enabled });
+      }
+      if (message?.type === 'recorder:permissions') {
+        mergeBackgroundState({ permissions: message.permissions });
       }
       if (message?.type === 'region:selected') {
         mergeBackgroundState({
@@ -135,13 +145,65 @@ export function App() {
     mergeBackgroundState({ regionBounds: undefined, captureMode: 'tab', regionMode: false });
   }, [mergeBackgroundState]);
 
+  const requestAudioPermission = useCallback(async () => {
+    try {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setPermissionMessage('Audio capture not supported in this context.');
+        return;
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach((track) => track.stop());
+      mergeBackgroundState({
+        permissions: { ...permissions, audio: true }
+      });
+      setPermissionMessage(t('permission.audio.granted'));
+    } catch {
+      setPermissionMessage(t('permission.audio.denied'));
+    }
+  }, [mergeBackgroundState, permissions]);
+
+  const requestScreenPermission = useCallback(async () => {
+    try {
+      const response = await runtime?.sendMessage({ type: 'capture:request' });
+      if (response?.ok) {
+        mergeBackgroundState({ permissions: response.permissions });
+        setPermissionMessage(t('permission.screen.granted'));
+      } else {
+        setPermissionMessage(t('permission.screen.denied'));
+      }
+    } catch {
+      setPermissionMessage(t('permission.screen.denied'));
+    }
+  }, [mergeBackgroundState]);
+
+  const togglePauseResume = useCallback(async () => {
+    if (status === 'recording') {
+      await runtime?.sendMessage({ type: 'recorder:pause' });
+      mergeBackgroundState({ status: 'paused' });
+      return;
+    }
+    if (status === 'paused') {
+      await runtime?.sendMessage({ type: 'recorder:resume' });
+      mergeBackgroundState({ status: 'recording' });
+    }
+  }, [mergeBackgroundState, status]);
+
   const qualityLabel = useMemo(() => {
     const presets = ['Auto', 'HD', '4K'];
     return presets[qualityPreset];
   }, [qualityPreset]);
 
   const statusColor =
-    status === 'recording' ? 'bg-danger/30 border-danger text-danger' : 'bg-outline text-white';
+    status === 'recording'
+      ? 'bg-danger/30 border-danger text-danger'
+      : status === 'paused'
+        ? 'bg-primary/30 border-primary text-primary'
+        : 'bg-outline text-white';
+
+  const elapsedSeconds = Math.floor((timeline.elapsedMs ?? 0) / 1000);
+  const formattedTime = `${String(Math.floor(elapsedSeconds / 60)).padStart(2, '0')}:${String(
+    elapsedSeconds % 60
+  ).padStart(2, '0')}`;
 
   const captureSummary = useMemo(() => {
     if (captureMode === 'region' && regionBounds) {
@@ -151,6 +213,10 @@ export function App() {
   }, [captureMode, regionBounds]);
 
   const regionToggleActive = regionMode || Boolean(regionBounds);
+  const audioReady = permissions.audio || audio.mic || audio.system;
+  const regionReady = permissions.screen || Boolean(regionBounds);
+  const canPauseResume = status !== 'idle';
+  const pauseResumeLabel = status === 'recording' ? t('tooltip.pause') : t('tooltip.resume');
 
   return (
     <div className="min-h-[360px] w-[360px] bg-[#0b0d13] p-4 text-white">
@@ -158,18 +224,26 @@ export function App() {
         <div>
           <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Status</p>
           <p className="text-lg font-semibold text-white">{t(`status.${status}`)}</p>
+          <p className="text-sm text-slate-500">{formattedTime}</p>
         </div>
         <div className={`rounded-full border px-4 py-1 text-sm ${statusColor}`}>
           {status === 'recording' ? 'REC' : status === 'paused' ? 'PAUSE' : 'IDLE'}
         </div>
       </header>
 
-      <section className="mt-5 grid grid-cols-3 gap-3">
+      <section className="mt-5 grid grid-cols-4 gap-3">
         <IconToggle
           icon={status === 'recording' ? 'lucide:pause' : 'lucide:play'}
           label={status === 'recording' ? t('tooltip.pause') : t('tooltip.start')}
           active={status === 'recording'}
           onClick={toggleRecording}
+        />
+        <IconToggle
+          icon={status === 'paused' ? 'lucide:play-circle' : 'lucide:pause-circle'}
+          label={pauseResumeLabel}
+          active={status === 'paused'}
+          disabled={!canPauseResume}
+          onClick={togglePauseResume}
         />
         <IconToggle
           icon="lucide:scan"
@@ -216,6 +290,13 @@ export function App() {
         </div>
       </footer>
 
+      <PermissionHints
+        audioReady={audioReady}
+        regionReady={regionReady}
+        onRequestAudio={requestAudioPermission}
+        onRequestScreen={requestScreenPermission}
+        message={permissionMessage}
+      />
       <RegionBadge
         region={regionBounds}
         onClear={clearRegion}
