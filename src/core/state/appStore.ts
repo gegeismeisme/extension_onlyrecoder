@@ -26,6 +26,9 @@ interface AppState {
     startedAt: number | null;
     elapsedMs: number;
   };
+  hasSeenOnboarding: boolean;
+  onboardingDismissedAt: number | null;
+  onboardingStep: number;
   qualityPreset: number;
   language: LanguageOption;
   config: AppConfig;
@@ -37,6 +40,9 @@ interface AppState {
   setAudio: (channel: keyof AudioState, enabled: boolean) => void;
   setPermissions: (permissions: { audio?: boolean; screen?: boolean }) => void;
   setTimeline: (timeline: Partial<AppState['timeline']>) => void;
+  setOnboardingSeen: () => void;
+  resetOnboarding: () => void;
+  setOnboardingStep: (step: number) => void;
   cycleQuality: () => void;
   setLanguage: (lang: LanguageOption) => void;
   mergeBackgroundState: (
@@ -77,6 +83,9 @@ const createInitialState = (): Omit<
     startedAt: null,
     elapsedMs: 0
   },
+  hasSeenOnboarding: false,
+  onboardingDismissedAt: null,
+  onboardingStep: 0,
   qualityPreset: 0,
   language: DEFAULT_CONFIG.ui.language,
   config: DEFAULT_CONFIG
@@ -108,6 +117,18 @@ export const useAppStore = create<AppState>()(
         set((state) => ({
           timeline: { ...state.timeline, ...timeline }
         })),
+      setOnboardingSeen: () =>
+        set({
+          hasSeenOnboarding: true,
+          onboardingDismissedAt: Date.now()
+        }),
+      resetOnboarding: () =>
+        set({
+          hasSeenOnboarding: false,
+          onboardingDismissedAt: null,
+          onboardingStep: 0
+        }),
+      setOnboardingStep: (step) => set({ onboardingStep: step }),
       cycleQuality: () =>
         set((state) => ({
           qualityPreset: (state.qualityPreset + 1) % 3
@@ -134,6 +155,9 @@ export const useAppStore = create<AppState>()(
         audio: state.audio,
         permissions: state.permissions,
         timeline: state.timeline,
+        hasSeenOnboarding: state.hasSeenOnboarding,
+        onboardingDismissedAt: state.onboardingDismissedAt,
+        onboardingStep: state.onboardingStep,
         regionBounds: state.regionBounds,
         captureMode: state.captureMode
       })

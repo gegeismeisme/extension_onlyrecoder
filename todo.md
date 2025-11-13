@@ -33,8 +33,7 @@
 - [ ] Web Audio Graph 混音（增益/压缩/延迟补偿）
 - [ ] 图标控制（长按 radial mixer + tooltip 文案）
 
-## UI & 多语言
-- [~] Popup 主界面（图标网格 + 状态指示 + 区域 badge + 暂停控制 + 权限提示/计时/申请入口）
+- [~] Popup 主界面（图标网格 + 状态指示 + 区域 badge + 暂停控制 + 权限提示/计时/申请入口 + onboarding overlay）
 - [x] Tooltip/辅助文案（zh/EN 映射）
 - [~] 空状态 + 权限引导（图标提示，待动画/权限检测）
 

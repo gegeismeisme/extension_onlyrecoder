@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
 import { IconToggle } from '../components/IconToggle';
 import { RegionBadge } from '../components/RegionBadge';
 import { PermissionHints } from '../components/PermissionHints';
+import { OnboardingOverlay } from '../components/OnboardingOverlay';
 import { initI18n, t } from '../../core/i18n';
 import { useAppStore, type AudioState } from '../../core/state/appStore';
 import type { RecorderStatus } from '../../core/types/recorder';
@@ -38,6 +39,9 @@ export function App() {
   const mergeBackgroundState = useAppStore((s) => s.mergeBackgroundState);
   const permissions = useAppStore((s) => s.permissions);
   const timeline = useAppStore((s) => s.timeline);
+  const resetOnboarding = useAppStore((s) => s.resetOnboarding);
+  const hasSeenOnboarding = useAppStore((s) => s.hasSeenOnboarding);
+  const setOnboardingSeen = useAppStore((s) => s.setOnboardingSeen);
   const [permissionMessage, setPermissionMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -219,12 +223,22 @@ export function App() {
   const pauseResumeLabel = status === 'recording' ? t('tooltip.pause') : t('tooltip.resume');
 
   return (
-    <div className="min-h-[360px] w-[360px] bg-[#0b0d13] p-4 text-white">
+    <div className="relative min-h-[360px] w-[360px] bg-[#0b0d13] p-4 text-white">
       <header className="flex items-center justify-between rounded-2xl border border-outline px-4 py-3">
-        <div>
-          <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Status</p>
-          <p className="text-lg font-semibold text-white">{t(`status.${status}`)}</p>
-          <p className="text-sm text-slate-500">{formattedTime}</p>
+        <div className="flex items-start gap-3">
+          <button
+            type="button"
+            className="rounded-full border border-outline px-2 py-1 text-[0.6rem] uppercase tracking-[0.3em] text-slate-500 transition hover:border-primary hover:text-primary"
+            onClick={resetOnboarding}
+            title="Replay guide"
+          >
+            ?
+          </button>
+          <div>
+            <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Status</p>
+            <p className="text-lg font-semibold text-white">{t(`status.${status}`)}</p>
+            <p className="text-sm text-slate-500">{formattedTime}</p>
+          </div>
         </div>
         <div className={`rounded-full border px-4 py-1 text-sm ${statusColor}`}>
           {status === 'recording' ? 'REC' : status === 'paused' ? 'PAUSE' : 'IDLE'}
@@ -302,6 +316,7 @@ export function App() {
         onClear={clearRegion}
         clearLabel={t('tooltip.regionClear')}
       />
+      {!hasSeenOnboarding && <OnboardingOverlay onClose={setOnboardingSeen} />}
     </div>
   );
 }
