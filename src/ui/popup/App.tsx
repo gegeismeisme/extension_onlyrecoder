@@ -85,18 +85,21 @@ export function App() {
     await runtime?.sendMessage({ type: 'region:toggle' });
   }, []);
 
-  const toggleAudio = useCallback(async (channel: 'mic' | 'system') => {
-    const next = !bgState.audio[channel];
-    await runtime?.sendMessage({
-      type: 'audio:toggle',
-      channel,
-      enabled: next
-    });
-    setBgState((prev) => ({
-      ...prev,
-      audio: { ...prev.audio, [channel]: next }
-    }));
-  }, [bgState.audio]);
+  const toggleAudio = useCallback(
+    async (channel: 'mic' | 'system') => {
+      const next = !bgState.audio[channel];
+      await runtime?.sendMessage({
+        type: 'audio:toggle',
+        channel,
+        enabled: next
+      });
+      setBgState((prev) => ({
+        ...prev,
+        audio: { ...prev.audio, [channel]: next }
+      }));
+    },
+    [bgState.audio]
+  );
 
   const switchLanguage = useCallback(async () => {
     const next = language === 'zh-CN' ? 'en' : 'zh-CN';
@@ -113,7 +116,8 @@ export function App() {
     return presets[qualityIndex];
   }, [qualityIndex]);
 
-  const statusColor = status === 'recording' ? 'bg-danger/30 border-danger text-danger' : 'bg-outline text-white';
+  const statusColor =
+    status === 'recording' ? 'bg-danger/30 border-danger text-danger' : 'bg-outline text-white';
 
   return (
     <div className="min-h-[360px] w-[360px] bg-[#0b0d13] p-4 text-white">
@@ -171,7 +175,11 @@ export function App() {
       <footer className="mt-6 rounded-2xl border border-dashed border-outline p-3 text-xs text-slate-400">
         <div className="flex items-center justify-between">
           <span>Config</span>
-          <span>{config ? `${config.video.resolution.toUpperCase()} x ${config.video.framerate}fps` : 'loading...'}</span>
+          <span>
+            {config
+              ? `${config.video.resolution.toUpperCase()} x ${config.video.framerate}fps`
+              : 'loading...'}
+          </span>
         </div>
       </footer>
     </div>

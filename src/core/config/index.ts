@@ -1,9 +1,7 @@
 import type { AppConfig } from '../types/config';
 import { DEFAULT_CONFIG } from '../types/config';
 
-const CONFIG_URL = chrome?.runtime
-  ? chrome.runtime.getURL('app.config.json')
-  : '/app.config.json';
+const CONFIG_URL = chrome?.runtime ? chrome.runtime.getURL('app.config.json') : '/app.config.json';
 
 let cachedConfig: AppConfig | null = null;
 

@@ -29,7 +29,11 @@ export function IconToggle({
       } ${className ?? ''}`}
     >
       <Icon icon={icon} width={28} height={28} />
-      {children && <span className="mt-1 text-[0.65rem] uppercase tracking-widest text-slate-300">{children}</span>}
+      {children && (
+        <span className="mt-1 text-[0.65rem] uppercase tracking-widest text-slate-300">
+          {children}
+        </span>
+      )}
     </button>
   );
 }
