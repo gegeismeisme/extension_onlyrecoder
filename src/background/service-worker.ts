@@ -40,6 +40,19 @@ let lastCaptureOptions: {
   config: AppConfig;
 } | null = null;
 
+const ensureTabCapturePermission = () =>
+  new Promise<boolean>((resolve) => {
+    chrome.permissions.contains({ permissions: ['tabCapture'] }, (granted) => {
+      if (granted) {
+        resolve(true);
+        return;
+      }
+      chrome.permissions.request({ permissions: ['tabCapture'] }, (grantedNow) => {
+        resolve(Boolean(grantedNow));
+      });
+    });
+  });
+
 const recorder = createRecorderController({
   onStatusChange: (status: RecorderStatus) => {
     recordingState.active = status !== 'idle';
@@ -224,6 +237,14 @@ chrome.runtime.onMessage.addListener(async (message, _sender, sendResponse) => {
 async function toggleRecording() {
   const isIdle = recorder.status() === 'idle';
   if (isIdle) {
+    const permissionGranted = await ensureTabCapturePermission();
+    if (!permissionGranted) {
+      chrome.runtime.sendMessage({
+        type: 'recorder:error',
+        message: 'Tab capture permission is required to start recording. Please allow it in the prompt.'
+      });
+      return;
+    }
     const captureAudio = recordingState.audio.mic || recordingState.audio.system;
     const options = {
       mode: captureState.mode,

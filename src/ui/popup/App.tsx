@@ -94,6 +94,9 @@ export function App() {
       if (message?.type === 'export:progress') {
         mergeBackgroundState({ exportStage: message.stage === 'queued' ? null : message.stage });
       }
+      if (message?.type === 'recorder:error') {
+        setPermissionMessage(message.message ?? 'Recording failed. Please check permissions.');
+      }
       if (message?.type === 'region:selected') {
         mergeBackgroundState({
           regionBounds: message.region,
