@@ -1,0 +1,13 @@
+{
+  "name": "onlyrecoder",
+  "version": "1.0.0",
+  "description": "- 这是一款面向 Chrome/Edge/Firefox（Manifest V3 兼容层）的录屏扩展，聚焦“一次录制多标签”、“区域裁剪”、“多音源混录”、“后台持续运行”四个关键词。 - Designed for cross-tab storytelling: capture any active tab, switch freely during a session, or fall back to window/desktop capture when the browser platform requires it.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs"
+}
