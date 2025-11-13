@@ -20,6 +20,7 @@ interface RecorderController {
   pause: () => void;
   resume: () => void;
   stop: () => Promise<void>;
+  restart: (options: StartOptions) => Promise<void>;
   status: () => RecorderStatus;
 }
 
@@ -73,8 +74,8 @@ export function createRecorderController(callbacks: RecorderCallbacks): Recorder
     }
   };
 
-  const captureTab = (captureAudio: boolean, config: AppConfig) =>
-    new Promise<MediaStream | null>((resolve) => {
+  const captureTab = async (captureAudio: boolean, config: AppConfig, region?: RegionBounds) => {
+    const stream = await new Promise<MediaStream | null>((resolve) => {
       const resolutionConstraints: Record<string, { maxWidth?: number; maxHeight?: number }> = {
         auto: {},
         '1080p': { maxWidth: 1920, maxHeight: 1080 },
@@ -95,22 +96,102 @@ export function createRecorderController(callbacks: RecorderCallbacks): Recorder
             }
           }
         },
-        (stream) => {
+        (streamResult) => {
           if (chrome.runtime.lastError) {
             console.warn('[recorder] tab capture failed', chrome.runtime.lastError);
             resolve(null);
             return;
           }
-          resolve(stream);
+          resolve(streamResult);
         }
       );
     });
 
-  const start: RecorderController['start'] = async ({ captureAudio, mode, config }) => {
+    if (stream && region) {
+      return applyRegionCrop(stream, region);
+    }
+
+    return stream;
+  };
+
+  type DesktopCaptureConstraints = {
+    audio: boolean;
+    video: {
+      mandatory: {
+        chromeMediaSource: 'desktop';
+        chromeMediaSourceId: string;
+      };
+    };
+  };
+
+  const captureDesktop = async (streamId: string, captureAudio: boolean, region?: RegionBounds) => {
+    try {
+      const constraints: DesktopCaptureConstraints = {
+        audio: captureAudio,
+        video: {
+          mandatory: {
+            chromeMediaSource: 'desktop',
+            chromeMediaSourceId: streamId
+          }
+        }
+      };
+      const stream = (await (navigator.mediaDevices as any).getUserMedia(
+        constraints
+      )) as MediaStream;
+      if (region) {
+        return applyRegionCrop(stream, region);
+      }
+      return stream;
+    } catch (error) {
+      console.warn('[recorder] desktop capture fallback failed', error);
+      return null;
+    }
+  };
+
+  const applyRegionCrop = async (stream: MediaStream, region: RegionBounds) => {
+    if (
+      typeof MediaStreamTrackProcessor === 'undefined' ||
+      typeof MediaStreamTrackGenerator === 'undefined'
+    ) {
+      console.warn(
+        '[recorder] region crop is not supported in this browser, fallback to full stream'
+      );
+      return stream;
+    }
+    const videoTrack = stream.getVideoTracks()[0];
+    const processor = new MediaStreamTrackProcessor({ track: videoTrack });
+    const generator = new MediaStreamTrackGenerator({ kind: 'video' });
+    const transformer = new TransformStream({
+      async transform(videoFrame: VideoFrame, controller) {
+        const cropped = new VideoFrame(videoFrame, {
+          visibleRect: {
+            x: region.x,
+            y: region.y,
+            width: region.width,
+            height: region.height
+          }
+        });
+        controller.enqueue(cropped);
+        videoFrame.close();
+      }
+    });
+
+    processor.readable.pipeThrough(transformer).pipeTo(generator.writable);
+    const croppedStream = new MediaStream([generator, ...stream.getAudioTracks()]);
+    return croppedStream;
+  };
+
+  const start: RecorderController['start'] = async ({ captureAudio, mode, config, region }) => {
     if (currentStatus === 'recording') return true;
     try {
       ensureMediaRecorderSupport();
-      const stream = await captureTab(captureAudio, config);
+      let stream = await captureTab(captureAudio, config, region);
+      if (!stream) {
+        const fallbackStreamId = await chrome.runtime.sendMessage({ type: 'capture:request' });
+        if (fallbackStreamId?.streamId) {
+          stream = await captureDesktop(fallbackStreamId.streamId, captureAudio, region);
+        }
+      }
       if (!stream) {
         throw new Error('Unable to capture tab. Check permissions.');
       }
@@ -159,6 +240,13 @@ export function createRecorderController(callbacks: RecorderCallbacks): Recorder
     }
   };
 
+  const restart: RecorderController['restart'] = async (options) => {
+    if (currentStatus === 'recording') {
+      await stop();
+      await start(options);
+    }
+  };
+
   const pause: RecorderController['pause'] = () => {
     if (mediaRecorder && currentStatus === 'recording') {
       mediaRecorder.pause();
@@ -196,6 +284,7 @@ export function createRecorderController(callbacks: RecorderCallbacks): Recorder
     pause,
     resume,
     stop,
+    restart,
     status: () => currentStatus
   };
 }

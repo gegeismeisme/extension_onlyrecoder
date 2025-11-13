@@ -35,6 +35,7 @@ interface AppState {
   language: LanguageOption;
   config: AppConfig;
   exportStatus: 'idle' | 'processing';
+  exportStage: string | null;
   hydrateConfig: () => Promise<void>;
   setStatus: (status: RecorderStatus) => void;
   setRegionMode: (enabled: boolean) => void;
@@ -101,6 +102,7 @@ const createInitialState = (): Omit<
   onboardingStep: 0,
   configOverrides: null,
   exportStatus: 'idle',
+  exportStage: null,
   qualityPreset: 0,
   language: DEFAULT_CONFIG.ui.language,
   config: DEFAULT_CONFIG
@@ -208,6 +210,7 @@ export const useAppStore = create<AppState>()(
         if (payload.permissions) next.permissions = payload.permissions;
         if (payload.timeline) next.timeline = payload.timeline;
         if (payload.exportStatus) next.exportStatus = payload.exportStatus;
+        if ('exportStage' in payload) next.exportStage = payload.exportStage ?? null;
         set(next);
       }
     }),
@@ -225,7 +228,8 @@ export const useAppStore = create<AppState>()(
         onboardingStep: state.onboardingStep,
         configOverrides: state.configOverrides,
         regionBounds: state.regionBounds,
-        captureMode: state.captureMode
+        captureMode: state.captureMode,
+        exportStage: state.exportStage
       })
     }
   )

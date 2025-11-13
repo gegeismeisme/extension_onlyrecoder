@@ -46,6 +46,7 @@ export function App() {
   const onboardingStep = useAppStore((s) => s.onboardingStep);
   const setOnboardingStep = useAppStore((s) => s.setOnboardingStep);
   const exportStatus = useAppStore((s) => s.exportStatus);
+  const exportStage = useAppStore((s) => s.exportStage);
   const updateConfigOverrides = useAppStore((s) => s.updateConfig);
   const refreshConfig = useAppStore((s) => s.refreshConfig);
   const [permissionMessage, setPermissionMessage] = useState<string | null>(null);
@@ -89,6 +90,9 @@ export function App() {
       }
       if (message?.type === 'export:status') {
         mergeBackgroundState({ exportStatus: message.status });
+      }
+      if (message?.type === 'export:progress') {
+        mergeBackgroundState({ exportStage: message.stage === 'queued' ? null : message.stage });
       }
       if (message?.type === 'region:selected') {
         mergeBackgroundState({
@@ -328,7 +332,17 @@ export function App() {
         message={permissionMessage}
       />
       <p className="mt-2 text-center text-[0.65rem] uppercase tracking-[0.3em] text-slate-600">
-        Export: {exportStatus}
+        Export:{' '}
+        <span
+          className={
+            exportStatus === 'processing' ? 'text-primary animate-pulse' : 'text-slate-500'
+          }
+        >
+          {exportStatus}
+        </span>
+        {exportStage && exportStatus === 'processing' && (
+          <span className="ml-2 text-slate-500">{exportStage}</span>
+        )}
       </p>
       <RegionBadge
         region={regionBounds}
