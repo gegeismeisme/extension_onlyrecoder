@@ -7,6 +7,19 @@ import { mergeConfig, mergeOverrides } from '../core/utils/configMerge';
 import { enqueueExport, getExportStatus } from './exporter';
 import { createRecorderController } from '../recorder/controller';
 
+const safeSendMessage = (message: any) => {
+  try {
+    chrome.runtime.sendMessage(message, () => {
+      const err = chrome.runtime.lastError;
+      if (err && !err.message?.includes('Receiving end does not exist')) {
+        console.warn('[messaging]', err.message);
+      }
+    });
+  } catch (error) {
+    console.warn('[messaging/sendMessage]', error);
+  }
+};
+
 const recordingState = {
   active: false,
   paused: false,
@@ -72,7 +85,7 @@ const recorder = createRecorderController({
     }
     if (status === 'paused' && recordingState.timeline.startedAt) {
       recordingState.timeline.elapsedMs = Date.now() - recordingState.timeline.startedAt;
-      chrome.runtime.sendMessage({ type: 'recorder:timeline', timeline: recordingState.timeline });
+      safeSendMessage({ type: 'recorder:timeline', timeline: recordingState.timeline });
     }
     if (status === 'idle') {
       if (timelineInterval) {
@@ -86,10 +99,10 @@ const recorder = createRecorderController({
     chrome.action.setBadgeText({
       text: status === 'idle' ? '' : status === 'paused' ? 'PAU' : 'REC'
     });
-    chrome.runtime.sendMessage({ type: 'recorder:status-changed', status });
+    safeSendMessage({ type: 'recorder:status-changed', status });
   },
   onResult: (result) => {
-    chrome.runtime.sendMessage({
+    safeSendMessage({
       type: 'recorder:file-ready',
       mimeType: result.mimeType,
       url: result.url,
@@ -99,7 +112,7 @@ const recorder = createRecorderController({
     enqueueExport(result, runtimeConfig);
   },
   onError: (error) => {
-    chrome.runtime.sendMessage({ type: 'recorder:error', message: error.message });
+    safeSendMessage({ type: 'recorder:error', message: error.message });
   }
 });
 
@@ -123,7 +136,7 @@ chrome.commands.onCommand.addListener(async (command) => {
       break;
     case 'mark-region':
       recordingState.regionMode = !recordingState.regionMode;
-      chrome.runtime.sendMessage({ type: 'region:toggle', enabled: recordingState.regionMode });
+      safeSendMessage({ type: 'region:toggle', enabled: recordingState.regionMode });
       break;
     default:
       break;
@@ -149,7 +162,7 @@ chrome.runtime.onMessage.addListener(async (message, _sender, sendResponse) => {
     case 'audio:toggle':
       if (message.channel === 'mic' || message.channel === 'system') {
         recordingState.audio[message.channel] = Boolean(message.enabled);
-        chrome.runtime.sendMessage({ type: 'audio:updated', audio: recordingState.audio });
+        safeSendMessage({ type: 'audio:updated', audio: recordingState.audio });
         await restartRecording('audio-toggle');
       }
       sendResponse(recordingState.audio);
@@ -172,9 +185,9 @@ chrome.runtime.onMessage.addListener(async (message, _sender, sendResponse) => {
     case 'region:selected': {
       captureState.region = message.region as RegionBounds;
       captureState.mode = 'region';
-      chrome.runtime.sendMessage({ type: 'region:selected', region: captureState.region });
+      safeSendMessage({ type: 'region:selected', region: captureState.region });
       await closeRegionOverlay();
-      chrome.runtime.sendMessage({ type: 'region:toggle', enabled: false });
+      safeSendMessage({ type: 'region:toggle', enabled: false });
       sendResponse({ region: captureState.region });
       await restartRecording('region-selected');
       break;
@@ -182,7 +195,7 @@ chrome.runtime.onMessage.addListener(async (message, _sender, sendResponse) => {
     case 'region:clear': {
       captureState.region = undefined;
       captureState.mode = 'tab';
-      chrome.runtime.sendMessage({ type: 'region:cleared' });
+      safeSendMessage({ type: 'region:cleared' });
       sendResponse({ regionCleared: true });
       await restartRecording('region-cleared');
       break;
@@ -241,7 +254,8 @@ async function toggleRecording() {
     if (!permissionGranted) {
       chrome.runtime.sendMessage({
         type: 'recorder:error',
-        message: 'Tab capture permission is required to start recording. Please allow it in the prompt.'
+        message:
+          'Tab capture permission is required to start recording. Please allow it in the prompt.'
       });
       return;
     }
@@ -265,7 +279,7 @@ async function toggleRecording() {
     lastCaptureOptions = null;
   }
   chrome.action.setBadgeBackgroundColor({ color: '#FF4D4D' });
-  chrome.runtime.sendMessage({ type: 'recorder:toggled', active: recorder.status() !== 'idle' });
+  safeSendMessage({ type: 'recorder:toggled', active: recorder.status() !== 'idle' });
 }
 
 async function restartRecording(reason: string) {
