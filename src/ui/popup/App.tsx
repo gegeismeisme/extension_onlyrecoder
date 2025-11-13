@@ -1,12 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from 'preact/hooks';
+import { useCallback, useEffect, useMemo } from 'preact/hooks';
 import { IconToggle } from '../components/IconToggle';
-import { loadConfig } from '../../core/config';
+import { RegionBadge } from '../components/RegionBadge';
 import { initI18n, t } from '../../core/i18n';
-import type { AppConfig, LanguageOption } from '../../core/types/config';
+import { useAppStore, type AudioState } from '../../core/state/appStore';
+import type { RecorderStatus } from '../../core/types/recorder';
 
 const runtime = typeof chrome !== 'undefined' ? chrome.runtime : undefined;
-
-type RecorderStatus = 'idle' | 'recording' | 'paused';
 
 interface BackgroundState {
   active: boolean;
@@ -18,39 +17,37 @@ interface BackgroundState {
   };
 }
 
-const initialBgState: BackgroundState = {
-  active: false,
-  paused: false,
-  regionMode: false,
-  audio: {
-    mic: true,
-    system: true
-  }
+const bgStatusToRecorder = (state: BackgroundState): RecorderStatus => {
+  if (!state.active) return 'idle';
+  return state.paused ? 'paused' : 'recording';
 };
 
 export function App() {
-  const [config, setConfig] = useState<AppConfig | null>(null);
-  const [language, setLanguage] = useState<LanguageOption>('auto');
-  const [bgState, setBgState] = useState<BackgroundState>(initialBgState);
-  const [qualityIndex, setQualityIndex] = useState(0);
-
-  const status: RecorderStatus = useMemo(() => {
-    if (!bgState.active) return 'idle';
-    return bgState.paused ? 'paused' : 'recording';
-  }, [bgState.active, bgState.paused]);
+  const config = useAppStore((s) => s.config);
+  const language = useAppStore((s) => s.language);
+  const status = useAppStore((s) => s.status);
+  const regionMode = useAppStore((s) => s.regionMode);
+  const captureMode = useAppStore((s) => s.captureMode);
+  const regionBounds = useAppStore((s) => s.regionBounds);
+  const audio = useAppStore((s) => s.audio);
+  const qualityPreset = useAppStore((s) => s.qualityPreset);
+  const hydrateConfig = useAppStore((s) => s.hydrateConfig);
+  const setLanguage = useAppStore((s) => s.setLanguage);
+  const cycleQuality = useAppStore((s) => s.cycleQuality);
+  const mergeBackgroundState = useAppStore((s) => s.mergeBackgroundState);
 
   useEffect(() => {
     const boot = async () => {
-      const loadedConfig = await loadConfig();
-      setConfig(loadedConfig);
-      const lang = loadedConfig.ui.language;
-      setLanguage(lang);
-      await initI18n(lang);
+      await hydrateConfig();
       if (runtime) {
         try {
           const state = (await runtime.sendMessage({ type: 'recorder:status' })) as BackgroundState;
           if (state) {
-            setBgState((prev) => ({ ...prev, ...state }));
+            mergeBackgroundState({
+              status: bgStatusToRecorder(state),
+              regionMode: state.regionMode,
+              audio: state.audio
+            });
           }
         } catch (error) {
           console.warn('[popup] unable to query status', error);
@@ -61,13 +58,23 @@ export function App() {
 
     const handler = (message: any) => {
       if (message?.type === 'recorder:toggled') {
-        setBgState((prev) => ({ ...prev, active: message.active, paused: false }));
+        mergeBackgroundState({ status: message.active ? 'recording' : 'idle' });
       }
       if (message?.type === 'audio:updated') {
-        setBgState((prev) => ({ ...prev, audio: message.audio }));
+        mergeBackgroundState({ audio: message.audio });
       }
       if (message?.type === 'region:toggle') {
-        setBgState((prev) => ({ ...prev, regionMode: message.enabled }));
+        mergeBackgroundState({ regionMode: message.enabled });
+      }
+      if (message?.type === 'region:selected') {
+        mergeBackgroundState({
+          regionBounds: message.region,
+          captureMode: 'region',
+          regionMode: false
+        });
+      }
+      if (message?.type === 'region:cleared') {
+        mergeBackgroundState({ regionBounds: undefined, captureMode: 'tab' });
       }
     };
 
@@ -75,49 +82,75 @@ export function App() {
     return () => {
       runtime?.onMessage.removeListener(handler);
     };
-  }, []);
+  }, [hydrateConfig, mergeBackgroundState]);
+
+  useEffect(() => {
+    initI18n(language).catch((error) => console.warn('[popup] i18n init failed', error));
+  }, [language]);
 
   const toggleRecording = useCallback(async () => {
-    await runtime?.sendMessage({ type: 'recorder:toggle' });
-  }, []);
+    const response = (await runtime?.sendMessage({ type: 'recorder:toggle' })) as
+      | BackgroundState
+      | undefined;
+    if (response) {
+      mergeBackgroundState({
+        status: bgStatusToRecorder(response)
+      });
+    }
+  }, [mergeBackgroundState]);
 
   const toggleRegion = useCallback(async () => {
-    await runtime?.sendMessage({ type: 'region:toggle' });
-  }, []);
+    const response = (await runtime?.sendMessage({ type: 'region:toggle' })) as
+      | { regionMode: boolean }
+      | undefined;
+    if (response) {
+      mergeBackgroundState({
+        regionMode: response.regionMode,
+        captureMode: response.regionMode ? 'region' : captureMode
+      });
+    }
+  }, [captureMode, mergeBackgroundState]);
 
   const toggleAudio = useCallback(
     async (channel: 'mic' | 'system') => {
-      const next = !bgState.audio[channel];
-      await runtime?.sendMessage({
+      const response = (await runtime?.sendMessage({
         type: 'audio:toggle',
         channel,
-        enabled: next
-      });
-      setBgState((prev) => ({
-        ...prev,
-        audio: { ...prev.audio, [channel]: next }
-      }));
+        enabled: !audio[channel]
+      })) as AudioState | undefined;
+      if (response) {
+        mergeBackgroundState({ audio: response });
+      }
     },
-    [bgState.audio]
+    [audio, mergeBackgroundState]
   );
 
-  const switchLanguage = useCallback(async () => {
+  const switchLanguage = useCallback(() => {
     const next = language === 'zh-CN' ? 'en' : 'zh-CN';
     setLanguage(next);
-    await initI18n(next);
-  }, [language]);
+  }, [language, setLanguage]);
 
-  const cycleQuality = useCallback(() => {
-    setQualityIndex((prev) => (prev + 1) % 3);
-  }, []);
+  const clearRegion = useCallback(async () => {
+    await runtime?.sendMessage({ type: 'region:clear' });
+    mergeBackgroundState({ regionBounds: undefined, captureMode: 'tab', regionMode: false });
+  }, [mergeBackgroundState]);
 
   const qualityLabel = useMemo(() => {
     const presets = ['Auto', 'HD', '4K'];
-    return presets[qualityIndex];
-  }, [qualityIndex]);
+    return presets[qualityPreset];
+  }, [qualityPreset]);
 
   const statusColor =
     status === 'recording' ? 'bg-danger/30 border-danger text-danger' : 'bg-outline text-white';
+
+  const captureSummary = useMemo(() => {
+    if (captureMode === 'region' && regionBounds) {
+      return `REG ${Math.round(regionBounds.width)}×${Math.round(regionBounds.height)}`;
+    }
+    return 'TAB';
+  }, [captureMode, regionBounds]);
+
+  const regionToggleActive = regionMode || Boolean(regionBounds);
 
   return (
     <div className="min-h-[360px] w-[360px] bg-[#0b0d13] p-4 text-white">
@@ -141,13 +174,13 @@ export function App() {
         <IconToggle
           icon="lucide:scan"
           label={t('tooltip.region')}
-          active={bgState.regionMode}
+          active={regionToggleActive}
           onClick={toggleRegion}
         />
         <IconToggle
           icon="lucide:sparkles"
           label={t('tooltip.quality')}
-          active={qualityIndex > 0}
+          active={qualityPreset > 0}
           onClick={cycleQuality}
         >
           {qualityLabel}
@@ -155,13 +188,13 @@ export function App() {
         <IconToggle
           icon="lucide:mic"
           label={t('tooltip.mic')}
-          active={bgState.audio.mic}
+          active={audio.mic}
           onClick={() => toggleAudio('mic')}
         />
         <IconToggle
           icon="lucide:headphones"
           label={t('tooltip.system')}
-          active={bgState.audio.system}
+          active={audio.system}
           onClick={() => toggleAudio('system')}
         />
         <IconToggle
@@ -175,13 +208,19 @@ export function App() {
       <footer className="mt-6 rounded-2xl border border-dashed border-outline p-3 text-xs text-slate-400">
         <div className="flex items-center justify-between">
           <span>Config</span>
-          <span>
-            {config
-              ? `${config.video.resolution.toUpperCase()} x ${config.video.framerate}fps`
-              : 'loading...'}
-          </span>
+          <span>{`${config.video.resolution.toUpperCase()} x ${config.video.framerate}fps`}</span>
+        </div>
+        <div className="mt-2 flex items-center justify-between text-[0.65rem] uppercase tracking-[0.3em] text-slate-500">
+          <span>Capture</span>
+          <span>{captureSummary}</span>
         </div>
       </footer>
+
+      <RegionBadge
+        region={regionBounds}
+        onClear={clearRegion}
+        clearLabel={t('tooltip.regionClear')}
+      />
     </div>
   );
 }

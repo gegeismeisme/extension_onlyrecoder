@@ -10,7 +10,8 @@ export const resources = {
       'tooltip.mic': 'Toggle microphone',
       'tooltip.system': 'Toggle system audio',
       'tooltip.quality': 'Quality presets',
-      'tooltip.language': 'Switch language'
+      'tooltip.language': 'Switch language',
+      'tooltip.regionClear': 'Clear region'
     }
   },
   'zh-CN': {
@@ -24,7 +25,8 @@ export const resources = {
       'tooltip.mic': '切换麦克风',
       'tooltip.system': '切换系统音频',
       'tooltip.quality': '质量预设',
-      'tooltip.language': '切换语言'
+      'tooltip.language': '切换语言',
+      'tooltip.regionClear': '清除区域'
     }
   }
 };

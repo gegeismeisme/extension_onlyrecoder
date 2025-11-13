@@ -19,8 +19,8 @@ export default defineConfig({
     sourcemap: true,
     rollupOptions: {
       input: {
-        popup: r('src/ui/popup/index.html'),
-        offscreen: r('src/ui/offscreen/index.html'),
+        'popup/index': r('popup/index.html'),
+        'offscreen/index': r('offscreen/index.html'),
         background: r('src/background/service-worker.ts')
       },
       output: {
