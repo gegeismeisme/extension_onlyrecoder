@@ -1,6 +1,7 @@
 import type { CaptureMode, RegionBounds } from '../core/types/capture';
 import type { RecorderStatus, RecordingResult } from '../core/types/recorder';
 import type { AppConfig } from '../core/types/config';
+import { safeSendMessage } from '../core/utils/messaging';
 
 interface RecorderCallbacks {
   onStatusChange: (status: RecorderStatus) => void;
@@ -229,7 +230,7 @@ export function createRecorderController(callbacks: RecorderCallbacks): Recorder
 
       recorder.start(1000);
       setStatus('recording');
-      chrome.runtime.sendMessage({ type: 'recorder:capture-mode', mode });
+      safeSendMessage({ type: 'recorder:capture-mode', mode });
       return true;
     } catch (error) {
       cleanupStream();

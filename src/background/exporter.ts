@@ -1,5 +1,6 @@
 import type { RecordingResult } from '../core/types/recorder';
 import type { AppConfig } from '../core/types/config';
+import { safeSendMessage } from '../core/utils/messaging';
 type FFmpegInstance = Awaited<ReturnType<any>>;
 let ffmpegFactory: ((options: { log: boolean }) => FFmpegInstance) | null = null;
 let ffmpegInstance: FFmpegInstance | null = null;
@@ -15,7 +16,7 @@ let ffmpegLoaded = false;
 let ffmpegLoading: Promise<void> | null = null;
 
 const sendStage = (jobId: string, stage: ExportStage) => {
-  chrome.runtime.sendMessage({ type: 'export:progress', jobId, stage });
+  safeSendMessage({ type: 'export:progress', jobId, stage });
 };
 
 export const getExportStatus = () => status;
@@ -30,13 +31,13 @@ export async function enqueueExport(result: RecordingResult, config: AppConfig) 
 async function processQueue(config: AppConfig) {
   if (!jobQueue.length) {
     status = 'idle';
-    chrome.runtime.sendMessage({ type: 'export:status', status });
+    safeSendMessage({ type: 'export:status', status });
     sendStage('none', 'queued');
     return;
   }
 
   status = 'processing';
-  chrome.runtime.sendMessage({ type: 'export:status', status });
+  safeSendMessage({ type: 'export:status', status });
 
   const job = jobQueue.shift()!;
   const jobId = `${Date.now()}-${Math.random()}`;

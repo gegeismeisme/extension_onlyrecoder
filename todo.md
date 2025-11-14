@@ -1,4 +1,4 @@
-﻿# OnlyRecoder TODO · Plan & Progress
+# OnlyRecoder TODO - Plan & Progress
 
 > Status legend: `[ ]` backlog / `[~]` in progress / `[x]` done. Update after every meaningful change.
 
@@ -12,7 +12,7 @@
 ## Sprint 0 (Bootstrap)
 | Status | Task | Notes |
 | --- | --- | --- |
-| [x] | Setup `pnpm + Vite + Manifest V3` | Scaffold, scripts, build ✅ |
+| [x] | Setup `pnpm + Vite + Manifest V3` | Scaffold, scripts, build OK |
 | [x] | Define `config/app.config.json` + typings | Defaults, validation, static copy |
 | [x] | `_locales` + i18next | zh-CN / en-US switch |
 | [~] | Icon-first design baseline | Tailwind theme + icon set, waiting on motion rules |
@@ -40,6 +40,8 @@
 
 ## Performance & Background
 - [~] Service worker: state sync, shortcuts, tab context tracking
+- [x] Message bus guard (safeSend wrappers + Receiving-end suppression)
+- [~] Recording start diagnostics (capture permission trace + user-facing error copy)
 - [ ] Offscreen re-encode + thumbnails
 - [ ] Performance probe (CPU/memory telemetry + auto-degrade)
 

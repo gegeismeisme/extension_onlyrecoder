@@ -6,19 +6,7 @@ import { DEFAULT_CONFIG } from '../core/types/config';
 import { mergeConfig, mergeOverrides } from '../core/utils/configMerge';
 import { enqueueExport, getExportStatus } from './exporter';
 import { createRecorderController } from '../recorder/controller';
-
-const safeSendMessage = (message: any) => {
-  try {
-    chrome.runtime.sendMessage(message, () => {
-      const err = chrome.runtime.lastError;
-      if (err && !err.message?.includes('Receiving end does not exist')) {
-        console.warn('[messaging]', err.message);
-      }
-    });
-  } catch (error) {
-    console.warn('[messaging/sendMessage]', error);
-  }
-};
+import { safeSendMessage } from '../core/utils/messaging';
 
 const recordingState = {
   active: false,
@@ -76,7 +64,7 @@ const recorder = createRecorderController({
       timelineInterval = setInterval(() => {
         if (recordingState.timeline.startedAt) {
           recordingState.timeline.elapsedMs = Date.now() - recordingState.timeline.startedAt;
-          chrome.runtime.sendMessage({
+          safeSendMessage({
             type: 'recorder:timeline',
             timeline: recordingState.timeline
           });
@@ -94,7 +82,7 @@ const recorder = createRecorderController({
       }
       recordingState.timeline.startedAt = null;
       recordingState.timeline.elapsedMs = 0;
-      chrome.runtime.sendMessage({ type: 'recorder:timeline', timeline: recordingState.timeline });
+      safeSendMessage({ type: 'recorder:timeline', timeline: recordingState.timeline });
     }
     chrome.action.setBadgeText({
       text: status === 'idle' ? '' : status === 'paused' ? 'PAU' : 'REC'
@@ -169,7 +157,7 @@ chrome.runtime.onMessage.addListener(async (message, _sender, sendResponse) => {
       break;
     case 'region:toggle': {
       recordingState.regionMode = !recordingState.regionMode;
-      chrome.runtime.sendMessage({ type: 'region:toggle', enabled: recordingState.regionMode });
+      safeSendMessage({ type: 'region:toggle', enabled: recordingState.regionMode });
       if (recordingState.regionMode) {
         captureState.mode = 'region';
         await openRegionOverlay();
@@ -202,7 +190,7 @@ chrome.runtime.onMessage.addListener(async (message, _sender, sendResponse) => {
     }
     case 'capture:request': {
       const streamId = await requestTabCapture();
-      chrome.runtime.sendMessage({
+      safeSendMessage({
         type: 'recorder:permissions',
         permissions: recordingState.permissions
       });
@@ -252,7 +240,7 @@ async function toggleRecording() {
   if (isIdle) {
     const permissionGranted = await ensureTabCapturePermission();
     if (!permissionGranted) {
-      chrome.runtime.sendMessage({
+      safeSendMessage({
         type: 'recorder:error',
         message:
           'Tab capture permission is required to start recording. Please allow it in the prompt.'
@@ -268,7 +256,7 @@ async function toggleRecording() {
     };
     const started = await recorder.start(options);
     if (!started) {
-      chrome.runtime.sendMessage({ type: 'recorder:error', message: 'Failed to start recording.' });
+      safeSendMessage({ type: 'recorder:error', message: 'Failed to start recording.' });
       lastCaptureOptions = null;
     } else {
       recordingState.permissions.audio = captureAudio;
@@ -295,7 +283,7 @@ async function restartRecording(reason: string) {
   lastCaptureOptions = options;
   try {
     await recorder.restart(options);
-    chrome.runtime.sendMessage({ type: 'recorder:restart', reason });
+    safeSendMessage({ type: 'recorder:restart', reason });
   } catch (error) {
     console.warn('[recorder] failed to restart stream', error);
   }
@@ -310,7 +298,7 @@ async function openRegionOverlay() {
       justification: 'Region selection overlay'
     });
   }
-  chrome.runtime.sendMessage({ type: 'region:overlay-open' });
+  safeSendMessage({ type: 'region:overlay-open' });
 }
 
 async function closeRegionOverlay() {
@@ -319,7 +307,7 @@ async function closeRegionOverlay() {
   if (hasOffscreen) {
     await chrome.offscreen.closeDocument?.();
   }
-  chrome.runtime.sendMessage({ type: 'region:overlay-close' });
+  safeSendMessage({ type: 'region:overlay-close' });
 }
 
 async function requestTabCapture(): Promise<string | null> {
@@ -327,7 +315,7 @@ async function requestTabCapture(): Promise<string | null> {
     if (!chrome.tabCapture || typeof chrome.tabCapture.getMediaStreamId !== 'function') {
       console.warn('[capture] tabCapture API is unavailable in this browser');
       recordingState.permissions.screen = false;
-      chrome.runtime.sendMessage({
+      safeSendMessage({
         type: 'recorder:error',
         message: '当前浏览器不支持 tabCapture，请切换到 Chrome/Edge 或使用桌面捕获。'
       });
@@ -359,7 +347,7 @@ async function requestTabCapture(): Promise<string | null> {
 }
 
 async function stopCapture() {
-  chrome.runtime.sendMessage({ type: 'capture:stopped' });
+  safeSendMessage({ type: 'capture:stopped' });
 }
 
 chrome.tabs.onActivated.addListener(({ tabId, windowId }) => {
@@ -383,7 +371,7 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName === 'local' && changes.configOverrides) {
     configOverrides = (changes.configOverrides.newValue as Partial<AppConfig>) ?? null;
     recomputeConfig();
-    chrome.runtime.sendMessage({ type: 'config:updated', config: runtimeConfig });
+    safeSendMessage({ type: 'config:updated', config: runtimeConfig });
   }
 });
 
