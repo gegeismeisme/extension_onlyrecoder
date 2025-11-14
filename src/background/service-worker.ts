@@ -30,6 +30,11 @@ const captureState: CaptureState = {
   mode: 'tab'
 };
 
+type TabCaptureRequestResult = {
+  streamId: string | null;
+  error?: string;
+};
+
 let timelineInterval: number | null = null;
 let baseConfig: AppConfig = DEFAULT_CONFIG;
 let configOverrides: Partial<AppConfig> | null = null;
@@ -189,7 +194,7 @@ chrome.runtime.onMessage.addListener(async (message, _sender, sendResponse) => {
       break;
     }
     case 'capture:request': {
-      const streamId = await requestTabCapture();
+      const { streamId, error } = await requestTabCapture();
       safeSendMessage({
         type: 'recorder:permissions',
         permissions: recordingState.permissions
@@ -197,7 +202,8 @@ chrome.runtime.onMessage.addListener(async (message, _sender, sendResponse) => {
       sendResponse({
         ok: Boolean(streamId),
         streamId,
-        permissions: recordingState.permissions
+        permissions: recordingState.permissions,
+        error
       });
       break;
     }
@@ -310,38 +316,51 @@ async function closeRegionOverlay() {
   safeSendMessage({ type: 'region:overlay-close' });
 }
 
-async function requestTabCapture(): Promise<string | null> {
+async function requestTabCapture(): Promise<TabCaptureRequestResult> {
   return new Promise((resolve) => {
     if (!chrome.tabCapture || typeof chrome.tabCapture.getMediaStreamId !== 'function') {
       console.warn('[capture] tabCapture API is unavailable in this browser');
       recordingState.permissions.screen = false;
+      const errorMessage = '当前浏览器不支持 tabCapture，请切换到 Chrome/Edge 或使用桌面捕获。';
       safeSendMessage({
         type: 'recorder:error',
-        message: '当前浏览器不支持 tabCapture，请切换到 Chrome/Edge 或使用桌面捕获。'
+        message: errorMessage
       });
       chrome.desktopCapture.chooseDesktopMedia(['window', 'screen', 'tab'], (streamId) => {
         if (!streamId) {
-          resolve(null);
+          resolve({
+            streamId: null,
+            error: '未能获取桌面捕获源，请重新选择窗口或屏幕。'
+          });
         } else {
-          resolve(streamId);
+          resolve({ streamId, error: undefined });
         }
       });
       return;
     }
 
     if (!captureState.tabId) {
-      resolve(null);
+      resolve({
+        streamId: null,
+        error: '当前没有可捕获的激活标签页。'
+      });
       return;
     }
     chrome.tabCapture.getMediaStreamId({ targetTabId: captureState.tabId }, (streamId) => {
       if (chrome.runtime.lastError) {
         console.warn('[capture] getMediaStreamId failed', chrome.runtime.lastError);
         recordingState.permissions.screen = false;
-        resolve(null);
+        resolve({
+          streamId: null,
+          error: chrome.runtime.lastError.message ?? '获取标签页流 ID 失败。'
+        });
         return;
       }
       recordingState.permissions.screen = Boolean(streamId);
-      resolve(streamId);
+      resolve({
+        streamId: streamId ?? null,
+        error: streamId ? undefined : '标签页未返回有效的流 ID。'
+      });
     });
   });
 }

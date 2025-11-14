@@ -3,6 +3,11 @@ import type { RecorderStatus, RecordingResult } from '../core/types/recorder';
 import type { AppConfig } from '../core/types/config';
 import { safeSendMessage } from '../core/utils/messaging';
 
+type CaptureRequestResponse = {
+  streamId?: string | null;
+  error?: string;
+};
+
 interface RecorderCallbacks {
   onStatusChange: (status: RecorderStatus) => void;
   onResult: (result: RecordingResult) => void;
@@ -32,6 +37,7 @@ export function createRecorderController(callbacks: RecorderCallbacks): Recorder
   let currentStatus: RecorderStatus = 'idle';
   let startedAt = 0;
   let currentOnStop: ((event: Event) => void) | null = null;
+  let lastRecorderError: string | null = null;
 
   const setStatus = (status: RecorderStatus) => {
     currentStatus = status;
@@ -76,6 +82,7 @@ export function createRecorderController(callbacks: RecorderCallbacks): Recorder
   };
 
   const captureTab = async (captureAudio: boolean, config: AppConfig, region?: RegionBounds) => {
+    lastRecorderError = null;
     const stream = await new Promise<MediaStream | null>((resolve) => {
       const resolutionConstraints: Record<string, { maxWidth?: number; maxHeight?: number }> = {
         auto: {},
@@ -100,6 +107,8 @@ export function createRecorderController(callbacks: RecorderCallbacks): Recorder
         (streamResult) => {
           if (chrome.runtime.lastError) {
             console.warn('[recorder] tab capture failed', chrome.runtime.lastError);
+            lastRecorderError =
+              chrome.runtime.lastError.message ?? '无法捕获当前标签页，请检查权限。';
             resolve(null);
             return;
           }
@@ -110,6 +119,10 @@ export function createRecorderController(callbacks: RecorderCallbacks): Recorder
 
     if (stream && region) {
       return applyRegionCrop(stream, region);
+    }
+
+    if (!stream && !lastRecorderError) {
+      lastRecorderError = '未获取到有效的标签页流，请确认页面允许被捕获。';
     }
 
     return stream;
@@ -144,7 +157,9 @@ export function createRecorderController(callbacks: RecorderCallbacks): Recorder
       }
       return stream;
     } catch (error) {
-      console.warn('[recorder] desktop capture fallback failed', error);
+      const err = error instanceof Error ? error : new Error(String(error));
+      console.warn('[recorder] desktop capture fallback failed', err);
+      lastRecorderError = err.message || '桌面捕获失败，请重新授权。';
       return null;
     }
   };
@@ -188,19 +203,26 @@ export function createRecorderController(callbacks: RecorderCallbacks): Recorder
       ensureMediaRecorderSupport();
       let stream = await captureTab(captureAudio, config, region);
       if (!stream) {
-        const fallbackStreamId = await chrome.runtime.sendMessage({ type: 'capture:request' });
-        if (fallbackStreamId?.streamId) {
-          stream = await captureDesktop(fallbackStreamId.streamId, captureAudio, region);
+        const fallbackStream = (await chrome.runtime.sendMessage({
+          type: 'capture:request'
+        })) as CaptureRequestResponse | undefined;
+        if (fallbackStream?.streamId) {
+          stream = await captureDesktop(fallbackStream.streamId, captureAudio, region);
+        } else if (fallbackStream?.error) {
+          lastRecorderError = fallbackStream.error;
         }
       }
       if (!stream) {
-        throw new Error('Unable to capture tab. Check permissions.');
+        const reason =
+          lastRecorderError ?? 'Unable to capture tab. Check permissions or avoid chrome:// pages.';
+        throw new Error(reason);
       }
       chunks = [];
       const recorder = buildRecorder(stream, config);
       mediaRecorder = recorder;
       currentStream = stream;
       startedAt = Date.now();
+      lastRecorderError = null;
 
       recorder.ondataavailable = (event) => {
         if (event.data && event.data.size > 0) {

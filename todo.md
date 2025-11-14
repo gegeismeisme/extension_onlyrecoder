@@ -41,7 +41,7 @@
 ## Performance & Background
 - [~] Service worker: state sync, shortcuts, tab context tracking
 - [x] Message bus guard (safeSend wrappers + Receiving-end suppression)
-- [~] Recording start diagnostics (capture permission trace + user-facing error copy)
+- [x] Recording start diagnostics (capture permission trace + user-facing error copy)
 - [ ] Offscreen re-encode + thumbnails
 - [ ] Performance probe (CPU/memory telemetry + auto-degrade)
 
